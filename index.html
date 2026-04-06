@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FairQuiz v3 – Anti-Malpractice Quiz System</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+/* ════════════════════════════════════════
+   THEME TOKENS
+════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+[data-theme="dark"]{
+  --bg:#04080f; --surface:#080e1a; --card:#0d1526; --card2:#111d30;
+  --border:#1a2540; --border2:#243050; --text:#e8edf5; --text2:#b0bcd4;
+  --muted:#4a5568; --muted2:#718096; --shadow:rgba(0,0,0,0.4);
+  --grid-line:rgba(0,229,255,0.03); --sidebar-bg:#060c18; --sidebar-hover:#0d1526;
+}
+[data-theme="light"]{
+  --bg:#f0f4ff; --surface:#e8eef8; --card:#ffffff; --card2:#f5f8ff;
+  --border:#d4ddf0; --border2:#c2cfe8; --text:#0d1526; --text2:#3a4a6b;
+  --muted:#a0aec0; --muted2:#718096; --shadow:rgba(100,120,180,0.12);
+  --grid-line:rgba(0,100,200,0.04); --sidebar-bg:#dde5f5; --sidebar-hover:#c8d6f0;
+}
+:root{
+  --accent:#00e5ff; --accent2:#ff3d71; --accent3:#ffe600;
+  --correct:#00d68f; --wrong:#ff3d71; --warn:#ffaa00; --hint:#b388ff;
+  --r:12px; --sidebar-w:240px;
+}
+
+/* ════════════════════════════════════════
+   BODY + GRID BG
+════════════════════════════════════════ */
+body{
+  font-family:'Outfit',sans-serif; background:var(--bg); color:var(--text);
+  min-height:100vh; display:flex; transition:background 0.3s,color 0.3s;
+  position:relative; overflow-x:hidden;
+}
+body::before{
+  content:''; position:fixed; inset:0;
+  background-image:linear-gradient(var(--grid-line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
+  background-size:44px 44px; pointer-events:none; z-index:0;
+}
+
+/* ════════════════════════════════════════
+   SIDEBAR
+════════════════════════════════════════ */
+.sidebar{
+  position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w);
+  background:var(--sidebar-bg); border-right:1px solid var(--border);
+  z-index:150; display:flex; flex-direction:column;
+  transition:transform 0.3s cubic-bezier(.22,1,.36,1),background 0.3s;
+  overflow-y:auto;
+}
+.sidebar.collapsed{transform:translateX(-100%);}
+.sidebar-logo{padding:20px 18px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:11px;}
+.sidebar-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#0088aa);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.sidebar-logo-text .disp{font-family:'Bebas Neue',cursive;font-size:1.4rem;color:var(--accent);letter-spacing:2px;line-height:1;}
+.sidebar-logo-text small{font-size:0.58rem;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;}
+.sidebar-user-block{padding:12px 14px;border-bottom:1px solid var(--border);background:rgba(0,229,255,0.03);}
+.su-label{font-size:0.62rem;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;}
+.su-name{font-size:0.87rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:7px;}
+.su-av{width:24px;height:24px;background:linear-gradient(135deg,var(--accent),#0088aa);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#000;flex-shrink:0;}
+.sidebar-section{padding:11px 14px 5px;font-size:0.6rem;font-weight:700;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;}
+.sidebar-nav{list-style:none;padding:0 7px;}
+.sidebar-nav li{margin-bottom:2px;}
+.sidebar-nav a{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:var(--r);font-size:0.82rem;font-weight:500;color:var(--text2);cursor:pointer;text-decoration:none;transition:all 0.18s;}
+.sidebar-nav a:hover{background:var(--sidebar-hover);color:var(--text);}
+.sidebar-nav a.active{background:rgba(0,229,255,0.1);color:var(--accent);border:1px solid rgba(0,229,255,0.2);}
+.sidebar-nav a .nav-icon{width:20px;text-align:center;font-size:0.95rem;}
+.sidebar-bottom{margin-top:auto;padding:12px 7px;border-top:1px solid var(--border);}
+.db-status-bar{font-size:0.63rem;color:var(--muted);padding:8px 12px 0;line-height:1.8;}
+.db-status-bar .db-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--correct);margin-right:5px;animation:pulse-dot 1.8s infinite;}
+@keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+/* ════════════════════════════════════════
+   SIDEBAR TOGGLE + OVERLAY
+════════════════════════════════════════ */
+.sidebar-toggle{
+  position:fixed;top:15px;left:15px;z-index:200;
+  background:var(--card);border:1.5px solid var(--border);border-radius:8px;
+  padding:8px 10px;cursor:pointer;font-size:1rem;color:var(--text2);
+  transition:all 0.2s;box-shadow:0 2px 12px var(--shadow);
+}
+.sidebar-toggle:hover{border-color:var(--accent);color:var(--accent);}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:140;backdrop-filter:blur(2px);}
+.sidebar-overlay.show{display:block;}
+
+/* ════════════════════════════════════════
+   MAIN CONTENT
+════════════════════════════════════════ */
+.main-content{
+  margin-left:var(--sidebar-w); flex:1; padding:20px 20px 40px;
+  position:relative; z-index:1; transition:margin-left 0.3s; min-height:100vh;
+}
+.app{width:100%;max-width:760px;margin:0 auto;margin-top:18px;}
+
+/* ════════════════════════════════════════
+   THEME TOGGLE
+════════════════════════════════════════ */
+.theme-toggle{
+  position:fixed;top:15px;right:15px;z-index:200;
+  background:var(--card);border:1.5px solid var(--border);border-radius:100px;
+  padding:7px 14px;cursor:pointer;font-size:0.82rem;font-weight:600;color:var(--text2);
+  display:flex;align-items:center;gap:7px;transition:all 0.2s;box-shadow:0 2px 12px var(--shadow);
+}
+.theme-toggle:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ════════════════════════════════════════
+   SCREENS
+════════════════════════════════════════ */
+.screen{display:none;}
+.screen.active{display:block;animation:fadeUp 0.4s cubic-bezier(.22,1,.36,1) both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(28px);}to{opacity:1;transform:translateY(0);}}
+
+/* ════════════════════════════════════════
+   CARD
+════════════════════════════════════════ */
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;position:relative;overflow:hidden;box-shadow:0 4px 32px var(--shadow);transition:background 0.3s,border-color 0.3s;}
+.card-stripe::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));}
+
+/* ════════════════════════════════════════
+   LOGO
+════════════════════════════════════════ */
+.logo-row{display:flex;align-items:center;gap:14px;margin-bottom:26px;}
+.logo-icon{width:48px;height:48px;background:linear-gradient(135deg,var(--accent),#0088aa);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.logo-text .disp{font-family:'Bebas Neue',cursive;font-size:2.2rem;color:var(--accent);letter-spacing:2px;line-height:1;}
+.logo-text small{font-size:0.7rem;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;}
+
+/* ════════════════════════════════════════
+   BUTTONS
+════════════════════════════════════════ */
+.btn{font-family:'Outfit',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;border:none;border-radius:var(--r);padding:13px 28px;transition:transform 0.15s,box-shadow 0.15s,opacity 0.2s;letter-spacing:0.2px;}
+.btn:hover:not(:disabled){transform:translateY(-2px);}
+.btn:active{transform:translateY(0);}
+.btn:disabled{opacity:0.45;cursor:not-allowed;}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;box-shadow:0 4px 20px rgba(0,229,255,0.2);}
+.btn-primary:hover:not(:disabled){box-shadow:0 6px 28px rgba(0,229,255,0.35);}
+.btn-danger{background:var(--wrong);color:#fff;}
+.btn-warn{background:var(--warn);color:#000;}
+.btn-ghost{background:transparent;color:var(--text);border:1.5px solid var(--border);}
+.btn-ghost:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.btn-hint{background:rgba(179,136,255,0.1);border:1.5px solid rgba(179,136,255,0.3);color:var(--hint);padding:9px 18px;font-size:0.85rem;}
+.btn-hint:hover:not(:disabled){background:rgba(179,136,255,0.18);}
+
+/* ════════════════════════════════════════
+   FORM FIELDS
+════════════════════════════════════════ */
+.field{margin-bottom:18px;}
+.field label{display:block;font-size:0.78rem;font-weight:700;color:var(--muted2);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;}
+.field input,.field select{width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:13px 16px;color:var(--text);font-family:'Outfit',sans-serif;font-size:0.95rem;transition:border-color 0.2s,box-shadow 0.2s;outline:none;}
+.field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.08);}
+.field select option{background:var(--card);}
+
+/* ════════════════════════════════════════
+   LOGIN SCREEN
+════════════════════════════════════════ */
+#login-screen .card{padding:44px 40px;}
+.hint-box{background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.15);border-radius:var(--r);padding:12px 16px;font-size:0.82rem;color:var(--muted2);margin-bottom:22px;line-height:1.7;}
+.hint-box strong{color:var(--accent);}
+#login-err{font-size:0.84rem;min-height:20px;margin-bottom:12px;transition:color 0.2s;}
+#login-err.err{color:var(--wrong);}
+#login-err.ok{color:var(--correct);}
+.db-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(0,214,143,0.07);border:1px solid rgba(0,214,143,0.25);border-radius:100px;padding:4px 12px;font-size:0.72rem;font-weight:600;color:var(--correct);margin-bottom:18px;}
+.db-pill.offline{background:rgba(255,61,113,0.07);border-color:rgba(255,61,113,0.25);color:var(--wrong);}
+.db-pill-dot{width:6px;height:6px;border-radius:50%;background:var(--correct);animation:pulse-dot 1.8s infinite;}
+.db-pill.offline .db-pill-dot{background:var(--wrong);animation:none;}
+.db-info-box{background:rgba(255,230,0,0.04);border:1px solid rgba(255,230,0,0.18);border-radius:var(--r);padding:11px 14px;font-size:0.78rem;color:var(--muted2);margin-bottom:18px;line-height:1.75;display:flex;align-items:flex-start;gap:10px;}
+.db-info-box .db-icon{font-size:1.2rem;flex-shrink:0;margin-top:1px;}
+.db-info-box strong{color:var(--accent3);}
+.db-info-box code{color:var(--accent3);font-size:0.75rem;}
+
+/* ════════════════════════════════════════
+   SETUP SCREEN
+════════════════════════════════════════ */
+#setup-screen .card{padding:38px;}
+.setup-title{font-family:'Bebas Neue',cursive;font-size:2.4rem;letter-spacing:2px;margin-bottom:5px;}
+.setup-title span{color:var(--accent);}
+.setup-sub{font-size:0.86rem;color:var(--muted2);margin-bottom:28px;line-height:1.6;}
+.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:22px;}
+@media(max-width:600px){.cat-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:400px){.cat-grid{grid-template-columns:repeat(2,1fr);}}
+.cat-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:10px 7px;cursor:pointer;text-align:center;transition:all 0.18s;font-family:'Outfit',sans-serif;font-weight:600;font-size:0.73rem;color:var(--text2);}
+.cat-btn .icon{font-size:1.15rem;display:block;margin-bottom:4px;}
+.cat-btn:hover{border-color:var(--accent);color:var(--accent);}
+.cat-btn.selected{border-color:var(--accent);background:rgba(0,229,255,0.07);color:var(--accent);}
+.cat-btn.all-cat.selected{border-color:var(--accent3);background:rgba(255,230,0,0.07);color:var(--accent3);}
+.diff-row{display:flex;gap:10px;margin-bottom:26px;flex-wrap:wrap;}
+.diff-btn{flex:1;min-width:90px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:11px 10px;cursor:pointer;text-align:center;font-family:'Outfit',sans-serif;font-weight:700;font-size:0.85rem;transition:all 0.18s;color:var(--text2);}
+.diff-btn:hover{border-color:var(--accent);}
+.diff-btn.selected.easy{border-color:var(--correct);background:rgba(0,214,143,0.07);color:var(--correct);}
+.diff-btn.selected.medium{border-color:var(--warn);background:rgba(255,170,0,0.07);color:var(--warn);}
+.diff-btn.selected.hard{border-color:var(--wrong);background:rgba(255,61,113,0.07);color:var(--wrong);}
+.diff-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+.easy-dot{background:var(--correct);} .medium-dot{background:var(--warn);} .hard-dot{background:var(--wrong);}
+.setup-actions{display:flex;gap:12px;flex-wrap:wrap;}
+
+/* ════════════════════════════════════════
+   RULES SCREEN
+════════════════════════════════════════ */
+#rules-screen .card{padding:38px;}
+.rules-title{font-family:'Bebas Neue',cursive;font-size:2.4rem;letter-spacing:2px;margin-bottom:5px;}
+.rules-title span{color:var(--accent2);}
+.rules-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0;}
+@media(max-width:500px){.rules-grid{grid-template-columns:1fr;}}
+.rule-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px;display:flex;gap:10px;align-items:flex-start;}
+.ri-icon{width:32px;height:32px;min-width:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.ri-red{background:rgba(255,61,113,0.1);} .ri-cyan{background:rgba(0,229,255,0.08);} .ri-yellow{background:rgba(255,230,0,0.08);} .ri-green{background:rgba(0,214,143,0.08);} .ri-purple{background:rgba(179,136,255,0.1);}
+.rule-text strong{display:block;font-size:0.81rem;font-weight:700;margin-bottom:2px;}
+.rule-text span{font-size:0.74rem;color:var(--muted2);}
+
+/* ════════════════════════════════════════
+   QUIZ SCREEN
+════════════════════════════════════════ */
+.warn-banner{background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);border-radius:var(--r);padding:10px 14px;display:none;align-items:center;gap:10px;margin-bottom:13px;animation:shake 0.4s ease;}
+.warn-banner.show{display:flex;}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
+.warn-banner span{font-size:0.85rem;color:var(--warn);font-weight:600;}
+.wc{margin-left:auto;background:var(--warn);color:#000;border-radius:100px;padding:2px 9px;font-size:0.71rem;font-weight:700;}
+.quiz-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;gap:10px;flex-wrap:wrap;}
+.user-tag{display:flex;align-items:center;gap:7px;font-size:0.83rem;color:var(--muted2);}
+.user-av{width:29px;height:29px;background:linear-gradient(135deg,var(--accent),#0088aa);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;}
+.sec-badge{display:flex;align-items:center;gap:5px;background:rgba(0,214,143,0.07);border:1px solid rgba(0,214,143,0.2);border-radius:100px;padding:5px 11px;font-size:0.72rem;color:var(--correct);font-weight:600;}
+.sec-badge.warn-mode{background:rgba(255,170,0,0.07);border-color:rgba(255,170,0,0.3);color:var(--warn);}
+.timer-block{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:100px;padding:5px 13px 5px 6px;}
+.t-ring{position:relative;width:32px;height:32px;}
+.t-ring svg{transform:rotate(-90deg);}
+.t-track{fill:none;stroke:var(--border2);stroke-width:3;}
+.t-fill{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;stroke-dasharray:82;transition:stroke-dashoffset 1s linear,stroke 0.4s;}
+.t-fill.tw{stroke:var(--warn);} .t-fill.td{stroke:var(--wrong);}
+.t-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',cursive;font-size:0.83rem;}
+.t-lbl{font-size:0.76rem;color:var(--muted2);}
+.prog-row{display:flex;align-items:center;gap:11px;margin-bottom:16px;}
+.prog-wrap{flex:1;background:var(--surface);border-radius:100px;height:6px;overflow:hidden;}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:100px;transition:width 0.5s cubic-bezier(.4,0,.2,1);}
+.q-frac{font-size:0.77rem;color:var(--muted2);white-space:nowrap;}
+.q-card{background:var(--card);border:1px solid var(--border);border-radius:17px;padding:24px 26px;margin-bottom:14px;position:relative;overflow:hidden;}
+.q-card::after{content:'';position:absolute;top:-1px;left:0;width:55px;height:3px;background:var(--accent);border-radius:0 0 4px 0;}
+.q-meta{display:flex;align-items:center;gap:7px;margin-bottom:11px;flex-wrap:wrap;}
+.q-cat-tag{font-size:0.7rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent2);}
+.q-diff-badge{border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;}
+.badge-easy{background:rgba(0,214,143,0.12);color:var(--correct);}
+.badge-medium{background:rgba(255,170,0,0.12);color:var(--warn);}
+.badge-hard{background:rgba(255,61,113,0.12);color:var(--wrong);}
+.q-text{font-size:1.09rem;font-weight:600;line-height:1.55;}
+.hint-area{background:rgba(179,136,255,0.06);border:1px solid rgba(179,136,255,0.2);border-radius:var(--r);padding:11px 15px;margin-bottom:13px;font-size:0.85rem;color:var(--hint);line-height:1.6;display:none;animation:fadeUp 0.3s ease;}
+.hint-area.show{display:block;}
+.quiz-controls{display:flex;align-items:center;gap:10px;margin-bottom:13px;flex-wrap:wrap;}
+.hints-left{font-size:0.77rem;color:var(--muted2);margin-left:auto;}
+.hints-left strong{color:var(--hint);}
+.opts-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+.opt{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:0.9rem;font-weight:500;color:var(--text);transition:border-color 0.18s,background 0.18s,transform 0.15s;text-align:left;font-family:'Outfit',sans-serif;}
+.opt:hover:not(:disabled){border-color:var(--accent);background:rgba(0,229,255,0.04);transform:translateX(4px);}
+.opt-key{width:28px;height:28px;min-width:28px;border:1.5px solid var(--border2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',cursive;font-size:0.86rem;letter-spacing:1px;transition:background 0.18s,border-color 0.18s;}
+/* ★ Selected answer — neutral grey, no green/red reveal */
+.opt.selected-ans{border-color:var(--muted);background:rgba(255,255,255,0.04);}
+.opt.selected-ans .opt-key{background:var(--muted);border-color:var(--muted);color:#fff;}
+.opt:disabled{cursor:default;}
+.feedback-line{min-height:20px;font-size:0.85rem;font-weight:600;margin-bottom:11px;display:flex;align-items:center;gap:7px;color:var(--text2);}
+.quiz-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+.score-live{font-size:0.83rem;color:var(--muted2);}
+.score-live strong{color:var(--correct);}
+
+/* ════════════════════════════════════════
+   LEADERBOARD
+════════════════════════════════════════ */
+#leaderboard-screen .card{padding:0;overflow:hidden;}
+.lb-header{padding:30px 34px 22px;background:linear-gradient(135deg,var(--card),var(--card2));border-bottom:1px solid var(--border);}
+.lb-title{font-family:'Bebas Neue',cursive;font-size:2.4rem;letter-spacing:2px;}
+.lb-title span{color:var(--accent3);}
+.lb-sub{font-size:0.83rem;color:var(--muted2);margin-top:4px;}
+.lb-empty{padding:40px;text-align:center;color:var(--muted2);font-size:0.9rem;}
+.lb-table{width:100%;}
+.lb-row{display:flex;align-items:center;gap:13px;padding:14px 26px;border-bottom:1px solid var(--border);transition:background 0.15s;}
+.lb-row:hover{background:var(--surface);}
+.lb-row:last-child{border-bottom:none;}
+.lb-rank{width:30px;min-width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',cursive;font-size:0.95rem;background:var(--surface);border:1.5px solid var(--border);color:var(--muted2);}
+.lb-rank.r1{background:rgba(255,230,0,0.12);border-color:var(--accent3);color:var(--accent3);}
+.lb-rank.r2{background:rgba(192,192,192,0.1);border-color:#c0c0c0;color:#c0c0c0;}
+.lb-rank.r3{background:rgba(205,127,50,0.12);border-color:#cd7f32;color:#cd7f32;}
+.lb-name{flex:1;font-weight:600;font-size:0.9rem;}
+.lb-meta{font-size:0.73rem;color:var(--muted2);}
+.lb-score{font-family:'Bebas Neue',cursive;font-size:1.25rem;letter-spacing:1px;color:var(--accent);}
+.lb-pct{font-size:0.73rem;color:var(--muted2);text-align:right;}
+.lb-actions{padding:18px 26px;display:flex;gap:12px;flex-wrap:wrap;}
+
+/* ════════════════════════════════════════
+   RESULT SCREEN
+════════════════════════════════════════ */
+#result-screen .card{overflow:hidden;}
+.res-header{padding:40px 34px 28px;text-align:center;border-bottom:1px solid var(--border);position:relative;}
+.res-header::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));}
+.trophy{font-size:3.6rem;display:block;animation:pop 0.6s cubic-bezier(.34,1.56,.64,1) 0.1s both;}
+@keyframes pop{from{transform:scale(0.3);opacity:0;}to{transform:scale(1);opacity:1;}}
+.res-name{font-family:'Bebas Neue',cursive;font-size:clamp(1.9rem,6vw,3rem);letter-spacing:2px;margin:12px 0 7px;}
+.res-name .c{color:var(--accent);}
+.res-sub{font-size:0.85rem;color:var(--muted2);line-height:1.7;}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border);}
+.stat-cell{padding:20px;text-align:center;border-right:1px solid var(--border);}
+.stat-cell:last-child{border-right:none;}
+.stat-num{font-family:'Bebas Neue',cursive;font-size:2.2rem;letter-spacing:1px;line-height:1;margin-bottom:4px;}
+.stat-lbl{font-size:0.68rem;color:var(--muted2);text-transform:uppercase;letter-spacing:1.5px;}
+.green{color:var(--correct);} .red{color:var(--wrong);} .cyan{color:var(--accent);} .yellow{color:var(--accent3);}
+.security-log{padding:20px 26px;border-bottom:1px solid var(--border);}
+.sec-log-title{font-size:0.73rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);margin-bottom:11px;}
+.log-items{display:flex;flex-direction:column;gap:7px;}
+.log-item{display:flex;align-items:center;gap:9px;font-size:0.82rem;}
+.log-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.ld-ok{background:var(--correct);} .ld-warn{background:var(--warn);} .ld-bad{background:var(--wrong);}
+.log-item span{color:var(--muted2);}
+.log-item strong{color:var(--text);}
+.res-actions{padding:22px 26px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.sql-log-block{padding:16px 22px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.15);}
+.sql-log-block code{font-size:0.72rem;color:var(--accent3);display:block;line-height:1.9;white-space:pre-wrap;word-break:break-word;}
+
+/* ════════════════════════════════════════
+   BLOCKED SCREEN
+════════════════════════════════════════ */
+#blocked-screen .card{padding:56px 34px;text-align:center;}
+
+/* ════════════════════════════════════════
+   MODALS
+════════════════════════════════════════ */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(4,8,15,0.88);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(5px);}
+.modal-ov.show{display:flex;animation:fadeIn 0.2s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.modal{background:var(--card);border:1px solid rgba(255,61,113,0.3);border-radius:20px;padding:36px 30px;max-width:410px;width:90%;text-align:center;position:relative;overflow:hidden;animation:slideUp 0.35s cubic-bezier(.22,1,.36,1) both;box-shadow:0 12px 48px rgba(0,0,0,0.5);}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.modal::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--wrong);}
+.modal-icon{font-size:2.6rem;display:block;margin-bottom:12px;}
+.modal h2{font-family:'Bebas Neue',cursive;font-size:1.8rem;letter-spacing:1px;color:var(--wrong);margin-bottom:9px;}
+.modal p{font-size:0.85rem;color:var(--muted2);line-height:1.7;margin-bottom:20px;}
+
+/* ════════════════════════════════════════
+   RESPONSIVE
+════════════════════════════════════════ */
+@media(max-width:900px){
+  .main-content{margin-left:0 !important;}
+  .sidebar:not(.collapsed){box-shadow:0 0 40px rgba(0,0,0,0.6);}
+}
+@media(max-width:480px){
+  #login-screen .card,#setup-screen .card,#rules-screen .card{padding:26px 18px;}
+  .q-card{padding:18px;}
+  .app{margin-top:48px;}
+}
+</style>
+</head>
+<body>
+
+<!-- Sidebar overlay (mobile tap-to-close) -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- ════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════ -->
+<nav class="sidebar" id="sidebar">
+
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">🛡️</div>
+    <div class="sidebar-logo-text">
+      <div class="disp">FairQuiz</div>
+      <small>v3 · Oracle 11g</small>
+    </div>
+  </div>
+
+  <!-- shown only when logged in -->
+  <div class="sidebar-user-block" id="sb-user-block" style="display:none;">
+    <div class="su-label">Logged in as</div>
+    <div class="su-name">
+      <div class="su-av" id="sb-av">S</div>
+      <span id="sb-uname">Student</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">Navigation</div>
+  <ul class="sidebar-nav">
+    <li><a onclick="goHome()" id="nav-home" class="active"><span class="nav-icon">🏠</span>Home</a></li>
+    <li><a onclick="goSetup()" id="nav-quiz"><span class="nav-icon">📝</span>Take Quiz</a></li>
+    <li><a onclick="loadLeaderboard()" id="nav-lb"><span class="nav-icon">🏆</span>Leaderboard</a></li>
+  </ul>
+
+  <div class="sidebar-section">Subjects</div>
+  <ul class="sidebar-nav">
+    <li><a onclick="quickStart('SQL')"><span class="nav-icon">🗄️</span>SQL &amp; Queries</a></li>
+    <li><a onclick="quickStart('Java')"><span class="nav-icon">☕</span>Java</a></li>
+    <li><a onclick="quickStart('C++')"><span class="nav-icon">⚙️</span>C++</a></li>
+    <li><a onclick="quickStart('C')"><span class="nav-icon">🔧</span>C Language</a></li>
+    <li><a onclick="quickStart('DSA')"><span class="nav-icon">🌲</span>DSA</a></li>
+    <li><a onclick="quickStart('Programming Concepts')"><span class="nav-icon">💡</span>Prog. Concepts</a></li>
+    <li><a onclick="quickStart('Python')"><span class="nav-icon">🐍</span>Python</a></li>
+    <li><a onclick="quickStart('Soft Skills')"><span class="nav-icon">🤝</span>Soft Skills</a></li>
+    <li><a onclick="quickStart('Science')"><span class="nav-icon">🔬</span>Science</a></li>
+    <li><a onclick="quickStart('Math')"><span class="nav-icon">🧮</span>Math</a></li>
+  </ul>
+
+  <div class="sidebar-bottom">
+    <ul class="sidebar-nav">
+      <li><a id="nav-logout" onclick="handleLogout()" style="color:var(--wrong);display:none;">
+        <span class="nav-icon">🚪</span>Logout
+      </a></li>
+    </ul>
+    <div class="db-status-bar">
+      <span class="db-dot"></span>Oracle 11g · JDBC Connected<br>
+      <span style="color:var(--muted2);">Data stored via SQL</span>
+    </div>
+  </div>
+
+</nav>
+
+<!-- Sidebar Toggle Button -->
+<button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
+
+<!-- Theme Toggle Button -->
+<button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">🌙 Dark</button>
+
+<!-- ════════════════════════════════════════
+     MAIN CONTENT
+════════════════════════════════════════ -->
+<div class="main-content" id="main-content">
+<div class="app">
+
+<!-- ══════════ LOGIN SCREEN ══════════ -->
+<div class="screen active" id="login-screen">
+  <div class="card card-stripe" style="padding:44px 40px;">
+
+    <div class="logo-row">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text">
+        <div class="disp">FairQuiz</div>
+        <small>Anti-Malpractice System v3</small>
+      </div>
+    </div>
+
+    <!-- DB connection status — updated dynamically -->
+    <div class="db-pill" id="db-pill">
+      <span class="db-pill-dot"></span>
+      <span id="db-pill-text">Oracle DB · Checking connection…</span>
+    </div>
+
+    <div style="font-size:1.3rem;font-weight:700;margin-bottom:5px;">Secure Login</div>
+    <div style="font-size:0.86rem;color:var(--muted2);margin-bottom:16px;line-height:1.6;">
+      Enter your credentials. New users are auto-registered.<br>
+      One account = one attempt per difficulty level.
+    </div>
+
+    <div class="db-info-box">
+      <div class="db-icon">🗄️</div>
+      <div>
+        <strong>Oracle 11g Database Active</strong><br>
+        Credentials are verified via SQL query on <code>fq_users</code> table.
+        Scores are inserted into <code>fq_scores</code> table on quiz completion.
+        Backend: <code>server.js</code> (Node.js + oracledb).
+      </div>
+    </div>
+
+    <div class="hint-box">
+      New user? Just enter any username + password (min 4 chars) — account will be created automatically.<br>
+      Example: <strong>student1</strong> / <strong>pass1234</strong>
+    </div>
+
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="inp-user" placeholder="e.g. student1" autocomplete="off"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="inp-pass" placeholder="Min 4 characters"/>
+    </div>
+
+    <div id="login-err"></div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="handleLogin()" style="flex:2;min-width:150px;" id="login-btn">
+        Login →
+      </button>
+      <button class="btn btn-ghost" onclick="loadLeaderboard()" style="flex:1;">🏆 Leaderboard</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ SETUP SCREEN ══════════ -->
+<div class="screen" id="setup-screen">
+  <div class="card card-stripe" style="padding:38px;">
+    <div class="setup-title">Quiz <span>Setup</span></div>
+    <div class="setup-sub">Choose your subject and difficulty. Session will be logged to Oracle DB.</div>
+
+    <div class="field"><label>Subject / Category</label></div>
+    <div class="cat-grid" id="cat-grid">
+      <div class="cat-btn all-cat selected" data-cat="All"                  onclick="selectCat(this)"><span class="icon">🌐</span>All</div>
+      <div class="cat-btn" data-cat="SQL"                                   onclick="selectCat(this)"><span class="icon">🗄️</span>SQL</div>
+      <div class="cat-btn" data-cat="Java"                                  onclick="selectCat(this)"><span class="icon">☕</span>Java</div>
+      <div class="cat-btn" data-cat="C++"                                   onclick="selectCat(this)"><span class="icon">⚙️</span>C++</div>
+      <div class="cat-btn" data-cat="C"                                     onclick="selectCat(this)"><span class="icon">🔧</span>C Lang</div>
+      <div class="cat-btn" data-cat="DSA"                                   onclick="selectCat(this)"><span class="icon">🌲</span>DSA</div>
+      <div class="cat-btn" data-cat="Programming Concepts"                  onclick="selectCat(this)"><span class="icon">💡</span>Prog. Concepts</div>
+      <div class="cat-btn" data-cat="Python"                                onclick="selectCat(this)"><span class="icon">🐍</span>Python</div>
+      <div class="cat-btn" data-cat="Soft Skills"                           onclick="selectCat(this)"><span class="icon">🤝</span>Soft Skills</div>
+      <div class="cat-btn" data-cat="Science"                               onclick="selectCat(this)"><span class="icon">🔬</span>Science</div>
+      <div class="cat-btn" data-cat="Math"                                  onclick="selectCat(this)"><span class="icon">🧮</span>Math</div>
+    </div>
+
+    <div class="field" style="margin-top:4px;"><label>Difficulty</label></div>
+    <div class="diff-row">
+      <div class="diff-btn easy selected" data-diff="Easy"   onclick="selectDiff(this)"><span class="diff-dot easy-dot"></span>Easy</div>
+      <div class="diff-btn medium"        data-diff="Medium" onclick="selectDiff(this)"><span class="diff-dot medium-dot"></span>Medium</div>
+      <div class="diff-btn hard"          data-diff="Hard"   onclick="selectDiff(this)"><span class="diff-dot hard-dot"></span>Hard</div>
+    </div>
+
+    <div class="hint-box" style="margin-bottom:24px;">
+      Hints available: <strong id="hints-preview">3 hints</strong> per quiz &nbsp;|&nbsp; Easy: 3 &nbsp;·&nbsp; Medium: 2 &nbsp;·&nbsp; Hard: 1
+    </div>
+
+    <div class="setup-actions">
+      <button class="btn btn-primary" onclick="goToRules()" style="flex:2;min-width:150px;">Continue →</button>
+      <button class="btn btn-ghost"   onclick="showScreen('login-screen')" style="flex:1;">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ RULES SCREEN ══════════ -->
+<div class="screen" id="rules-screen">
+  <div class="card card-stripe" style="padding:38px;">
+    <div class="rules-title">Anti-Malpractice <span>Rules</span></div>
+    <p style="font-size:0.85rem;color:var(--muted2);line-height:1.6;">Read carefully. Violations trigger automatic submission.</p>
+    <div class="rules-grid">
+      <div class="rule-item"><div class="ri-icon ri-red">🚫</div><div class="rule-text"><strong>No Tab Switching</strong><span>3 violations = auto-submit.</span></div></div>
+      <div class="rule-item"><div class="ri-icon ri-cyan">⏱</div><div class="rule-text"><strong>Fixed Timer</strong><span>20s per question. Time out = skip.</span></div></div>
+      <div class="rule-item"><div class="ri-icon ri-yellow">🔀</div><div class="rule-text"><strong>Randomized Questions</strong><span>Unique order every session.</span></div></div>
+      <div class="rule-item"><div class="ri-icon ri-red">🔒</div><div class="rule-text"><strong>One Attempt Only</strong><span>Per user per difficulty level.</span></div></div>
+      <div class="rule-item"><div class="ri-icon ri-green">✅</div><div class="rule-text"><strong>Auto-Submit</strong><span>On timer end or max violations.</span></div></div>
+      <div class="rule-item"><div class="ri-icon ri-purple">💡</div><div class="rule-text"><strong>Limited Hints</strong><span>Use wisely — hints are limited.</span></div></div>
+      <div class="rule-item"><div class="ri-icon ri-yellow">🚫</div><div class="rule-text"><strong>No Answer Reveal</strong><span>Correct answer hidden during quiz.</span></div></div>
+      <div class="rule-item"><div class="ri-icon ri-cyan">🗄️</div><div class="rule-text"><strong>Oracle DB Logging</strong><span>Score saved to DB on completion.</span></div></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="startQuiz()" style="flex:2;min-width:150px;">I Agree – Start Quiz 🚀</button>
+      <button class="btn btn-ghost"   onclick="showScreen('setup-screen')" style="flex:1;">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ QUIZ SCREEN ══════════ -->
+<div class="screen" id="quiz-screen">
+
+  <div class="warn-banner" id="warn-banner">
+    <span>⚠️</span>
+    <span>Tab switch detected! Return to quiz.</span>
+    <div class="wc" id="warn-count">1/3</div>
+  </div>
+
+  <div class="quiz-topbar">
+    <div class="user-tag">
+      <div class="user-av" id="user-av">S</div>
+      <span id="user-disp">student1</span>
+    </div>
+    <div class="timer-block">
+      <div class="t-ring">
+        <svg viewBox="0 0 30 30" width="32" height="32">
+          <circle class="t-track" cx="15" cy="15" r="13"/>
+          <circle class="t-fill" id="t-fill" cx="15" cy="15" r="13" stroke-dashoffset="0"/>
+        </svg>
+        <div class="t-num" id="t-num">20</div>
+      </div>
+      <span class="t-lbl">sec</span>
+    </div>
+    <div class="sec-badge" id="sec-badge">🟢 Secure</div>
+  </div>
+
+  <div class="prog-row">
+    <div class="prog-wrap"><div class="prog-bar" id="prog-bar" style="width:5%"></div></div>
+    <div class="q-frac" id="q-frac">1 / 10</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-meta">
+      <span class="q-cat-tag" id="q-cat">SQL</span>
+      <span class="q-diff-badge" id="q-diff-badge">Easy</span>
+    </div>
+    <div class="q-text" id="q-text">Loading…</div>
+  </div>
+
+  <div class="hint-area" id="hint-area">💡 <span id="hint-text"></span></div>
+
+  <div class="quiz-controls">
+    <button class="btn btn-hint" id="hint-btn" onclick="useHint()">💡 Use Hint</button>
+    <span class="hints-left">Hints left: <strong id="hints-left-num">3</strong></span>
+  </div>
+
+  <div class="opts-list" id="opts"></div>
+  <div class="feedback-line" id="feedback"></div>
+
+  <div class="quiz-footer">
+    <div class="score-live">Score: <strong id="live-sc">0</strong> / <span id="live-total">10</span></div>
+    <button class="btn btn-primary" id="next-btn" onclick="nextQ()" style="display:none;padding:11px 24px;">Next →</button>
+  </div>
+
+</div>
+
+<!-- ══════════ RESULT SCREEN ══════════ -->
+<div class="screen" id="result-screen">
+  <div class="card">
+    <div class="res-header">
+      <span class="trophy" id="res-trophy">🏆</span>
+      <div class="res-name" id="res-title">WELL <span class="c">DONE!</span></div>
+      <p class="res-sub" id="res-msg">You completed the FairQuiz assessment.</p>
+    </div>
+    <div class="stats-row">
+      <div class="stat-cell"><div class="stat-num green" id="res-correct">0</div><div class="stat-lbl">Correct</div></div>
+      <div class="stat-cell"><div class="stat-num red"   id="res-wrong">0</div><div class="stat-lbl">Wrong</div></div>
+      <div class="stat-cell"><div class="stat-num cyan"  id="res-pct">0%</div><div class="stat-lbl">Score</div></div>
+    </div>
+    <div class="security-log">
+      <div class="sec-log-title">🔐 Security Report</div>
+      <div class="log-items" id="log-items"></div>
+    </div>
+    <div class="sql-log-block">
+      <div class="sec-log-title" style="margin-bottom:9px;">🗄️ Oracle DB · SQL Executed</div>
+      <code id="sql-log"></code>
+    </div>
+    <div class="res-actions">
+      <button class="btn btn-primary" onclick="loadLeaderboard()">🏆 Leaderboard</button>
+      <button class="btn btn-ghost"   onclick="showScreen('setup-screen')">🔁 New Quiz</button>
+      <button class="btn btn-ghost"   onclick="handleLogout()">← Logout</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ LEADERBOARD SCREEN ══════════ -->
+<div class="screen" id="leaderboard-screen">
+  <div class="card">
+    <div class="lb-header card-stripe" style="position:relative;overflow:hidden;">
+      <div class="lb-title">🏆 Leader<span>board</span></div>
+      <div class="lb-sub">Top 20 performers · Live from Oracle DB</div>
+    </div>
+    <div id="lb-body"><div class="lb-empty">Loading from Oracle DB…</div></div>
+    <div class="lb-actions">
+      <button class="btn btn-ghost" onclick="showScreen('login-screen')">← Back to Login</button>
+      <button class="btn btn-ghost" onclick="clearLeaderboard()" style="color:var(--wrong);border-color:rgba(255,61,113,0.3);">🗑 Clear Local</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ BLOCKED SCREEN ══════════ -->
+<div class="screen" id="blocked-screen">
+  <div class="card" style="padding:56px 34px;text-align:center;">
+    <span style="font-size:4rem;">🚫</span>
+    <div style="font-family:'Bebas Neue',cursive;font-size:2.6rem;color:var(--wrong);letter-spacing:2px;margin:12px 0 9px;">Already Attempted</div>
+    <p style="color:var(--muted2);font-size:0.86rem;line-height:1.7;max-width:360px;margin:0 auto 26px;">
+      Oracle DB shows this account already completed a quiz at this difficulty level.<br>
+      Try a different difficulty.
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="showScreen('setup-screen')">Try Different Difficulty</button>
+      <button class="btn btn-ghost"   onclick="handleLogout()">← Logout</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- .app -->
+</div><!-- .main-content -->
+
+<!-- ══════════ MODALS ══════════ -->
+<div class="modal-ov" id="viol-modal">
+  <div class="modal">
+    <span class="modal-icon">⚠️</span>
+    <h2>Warning!</h2>
+    <p id="modal-msg">Tab switching detected. Further violations will auto-submit your quiz.</p>
+    <button class="btn btn-warn" onclick="closeModal('viol-modal')" style="width:100%;">I Understand – Resume</button>
+  </div>
+</div>
+
+<div class="modal-ov" id="autosubmit-modal">
+  <div class="modal">
+    <span class="modal-icon">🔒</span>
+    <h2>Auto-Submitted</h2>
+    <p>Maximum tab-switch violations reached. Your quiz has been automatically submitted.</p>
+    <button class="btn btn-danger" onclick="forceFinish()" style="width:100%;">View Results</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     JAVASCRIPT — Connects to server.js via fetch() API calls
+     All API endpoints: /api/login  /api/score  /api/leaderboard  /api/check-attempt
+════════════════════════════════════════════════════════ -->
+<script>
+
+// ════════════════════════════════════════
+//  QUESTION BANK
+// ════════════════════════════════════════
+const Q_BANK = [
+  // SQL
+  {cat:"SQL",diff:"Easy",text:"What does SQL stand for?",opts:["Structured Query Language","Simple Query Logic","Sequence Query Layer","System Query Library"],ans:0,hint:"Standard language for relational databases."},
+  {cat:"SQL",diff:"Easy",text:"Which SQL command retrieves data from a table?",opts:["INSERT","UPDATE","SELECT","DELETE"],ans:2,hint:"Starts with S."},
+  {cat:"SQL",diff:"Easy",text:"Which clause filters rows in SQL?",opts:["ORDER BY","GROUP BY","WHERE","HAVING"],ans:2,hint:"Comes right after FROM."},
+  {cat:"SQL",diff:"Medium",text:"Which keyword removes duplicate rows from a result?",opts:["UNIQUE","DISTINCT","DIFFERENT","NODUPE"],ans:1,hint:"Used inside SELECT."},
+  {cat:"SQL",diff:"Medium",text:"What does a JOIN do in SQL?",opts:["Deletes two tables","Combines rows from two tables","Splits a table","Counts rows"],ans:1,hint:"Relates data across tables."},
+  {cat:"SQL",diff:"Medium",text:"Which aggregate function returns the average?",opts:["SUM()","COUNT()","AVG()","MAX()"],ans:2,hint:"Average — 3 letters."},
+  {cat:"SQL",diff:"Hard",text:"Difference between INNER JOIN and LEFT JOIN?",opts:["No difference","LEFT JOIN returns all left-table rows even without a match","INNER JOIN returns all rows","LEFT JOIN returns only matching rows"],ans:1,hint:"Which side is fully retained?"},
+  {cat:"SQL",diff:"Hard",text:"What does a subquery mean in SQL?",opts:["A query inside another query","A stored procedure","A trigger","A view"],ans:0,hint:"Nested inside parentheses."},
+  {cat:"SQL",diff:"Hard",text:"Which SQL command creates a new table?",opts:["MAKE TABLE","BUILD TABLE","CREATE TABLE","ADD TABLE"],ans:2,hint:"DDL command — two words."},
+  // Java
+  {cat:"Java",diff:"Easy",text:"Which keyword defines a class in Java?",opts:["define","struct","class","object"],ans:2,hint:"Same as in C++."},
+  {cat:"Java",diff:"Easy",text:"What is the size of an int in Java?",opts:["2 bytes","4 bytes","8 bytes","16 bytes"],ans:1,hint:"32 bits."},
+  {cat:"Java",diff:"Easy",text:"Entry point of a Java program?",opts:["start()","run()","main()","init()"],ans:2,hint:"public static void ___"},
+  {cat:"Java",diff:"Medium",text:"What does JVM stand for?",opts:["Java Variable Machine","Java Virtual Machine","Java Verified Module","Java Version Manager"],ans:1,hint:"Executes Java bytecode."},
+  {cat:"Java",diff:"Medium",text:"Which keyword prevents a class from being subclassed?",opts:["static","abstract","final","private"],ans:2,hint:"Also used for constants."},
+  {cat:"Java",diff:"Hard",text:"Which collection allows duplicates and maintains insertion order?",opts:["HashSet","TreeSet","ArrayList","HashMap"],ans:2,hint:"Part of java.util, resizable."},
+  {cat:"Java",diff:"Hard",text:"Purpose of 'synchronized' keyword?",opts:["Speeds up code","Prevents multiple threads accessing a block simultaneously","Handles exceptions","Manages memory"],ans:1,hint:"Thread safety."},
+  // C++
+  {cat:"C++",diff:"Easy",text:"Which operator allocates dynamic memory in C++?",opts:["malloc","alloc","new","create"],ans:2,hint:"Paired with 'delete'."},
+  {cat:"C++",diff:"Easy",text:"Extension of a C++ source file?",opts:[".c",".java",".cpp",".py"],ans:2,hint:"C plus plus → .c__"},
+  {cat:"C++",diff:"Medium",text:"What is a constructor in C++?",opts:["Destroys objects","Called when an object is created","A type of loop","A pointer"],ans:1,hint:"Same name as the class."},
+  {cat:"C++",diff:"Medium",text:"What does STL stand for?",opts:["Standard Template Library","Static Type Language","System Template Logic","Strong Type Library"],ans:0,hint:"Provides vector, map, etc."},
+  {cat:"C++",diff:"Hard",text:"Same function name, different parameters — this is?",opts:["Inheritance","Overloading","Overriding","Polymorphism"],ans:1,hint:"Function ___ in C++."},
+  {cat:"C++",diff:"Hard",text:"What is a virtual function in C++?",opts:["No body","Declared in base class to be overridden","A static function","An inline function"],ans:1,hint:"Enables runtime polymorphism."},
+  // C Language
+  {cat:"C",diff:"Easy",text:"Header file needed for printf() and scanf()?",opts:["stdlib.h","math.h","stdio.h","string.h"],ans:2,hint:"Standard I/O."},
+  {cat:"C",diff:"Easy",text:"Symbol for single-line comments in C?",opts:["#","//","/* */","--"],ans:1,hint:"Double forward slash."},
+  {cat:"C",diff:"Medium",text:"What is a pointer in C?",opts:["Stores a value","Stores a memory address","A type of array","A recursive function"],ans:1,hint:"Points to another variable."},
+  {cat:"C",diff:"Medium",text:"Function used for dynamic memory allocation in C?",opts:["new","alloc","malloc","memset"],ans:2,hint:"Memory alloc — abbreviated."},
+  {cat:"C",diff:"Hard",text:"Difference between struct and union in C?",opts:["No difference","Struct allocates all members; union shares one memory block","Union allocates all members","Struct is for integers only"],ans:1,hint:"Think about memory layout."},
+  {cat:"C",diff:"Hard",text:"What does 'volatile' keyword do in C?",opts:["Makes variable constant","Variable may change unexpectedly","Allocates heap memory","Declares a function"],ans:1,hint:"Used in embedded/hardware programming."},
+  // DSA
+  {cat:"DSA",diff:"Easy",text:"Which data structure works on LIFO?",opts:["Queue","Stack","Array","LinkedList"],ans:1,hint:"Stack of plates."},
+  {cat:"DSA",diff:"Easy",text:"Which data structure works on FIFO?",opts:["Stack","Tree","Queue","Graph"],ans:2,hint:"Ticket counter line."},
+  {cat:"DSA",diff:"Easy",text:"Time complexity of array access by index?",opts:["O(n)","O(log n)","O(1)","O(n²)"],ans:2,hint:"Direct access — constant time."},
+  {cat:"DSA",diff:"Medium",text:"Best average-case sorting algorithm?",opts:["Bubble Sort","Selection Sort","Quick Sort","Insertion Sort"],ans:2,hint:"Average O(n log n)."},
+  {cat:"DSA",diff:"Medium",text:"Time complexity of binary search?",opts:["O(n)","O(n²)","O(log n)","O(1)"],ans:2,hint:"Halves search space each step."},
+  {cat:"DSA",diff:"Hard",text:"Data structure used for BFS traversal?",opts:["Stack","Queue","Priority Queue","Deque"],ans:1,hint:"FIFO — level-wise traversal."},
+  {cat:"DSA",diff:"Hard",text:"Worst-case time complexity of Quick Sort?",opts:["O(n log n)","O(n)","O(n²)","O(log n)"],ans:2,hint:"Occurs when pivot is always smallest/largest."},
+  // Programming Concepts
+  {cat:"Programming Concepts",diff:"Easy",text:"What does OOP stand for?",opts:["Object Oriented Programming","Open Operational Process","Output Optimization Protocol","Ordered Object Processing"],ans:0,hint:"Paradigm around objects and classes."},
+  {cat:"Programming Concepts",diff:"Medium",text:"What is recursion?",opts:["A loop","A function calling itself","Memory allocation","A data type"],ans:1,hint:"Function calls itself until base case."},
+  {cat:"Programming Concepts",diff:"Medium",text:"What is encapsulation in OOP?",opts:["Inheriting from parent","Bundling data and methods in one unit","Multiple forms of a method","Creating new objects"],ans:1,hint:"Data hiding concept."},
+  {cat:"Programming Concepts",diff:"Hard",text:"Compiled vs interpreted languages?",opts:["No difference","Compiled translates all code before running; interpreted line by line","Interpreted is faster","Compiled uses less memory"],ans:1,hint:"C=compiled; Python=interpreted."},
+  // Python
+  {cat:"Python",diff:"Easy",text:"Symbol for comments in Python?",opts:["//","/*","#","--"],ans:2,hint:"Hash symbol."},
+  {cat:"Python",diff:"Easy",text:"Function to print output in Python?",opts:["echo()","console.log()","print()","display()"],ans:2,hint:"print(___)"},
+  {cat:"Python",diff:"Medium",text:"Which Python structure is ordered and mutable?",opts:["Tuple","Set","List","Dictionary"],ans:2,hint:"Square brackets [ ]"},
+  {cat:"Python",diff:"Medium",text:"Keyword to define a function in Python?",opts:["function","define","func","def"],ans:3,hint:"Three letters — shortened from 'define'."},
+  {cat:"Python",diff:"Hard",text:"What is a lambda function?",opts:["A recursive function","A built-in function","An anonymous single-expression function","A class method"],ans:2,hint:"Also called anonymous function."},
+  {cat:"Python",diff:"Hard",text:"Purpose of 'self' in Python class methods?",opts:["A global variable","Refers to current instance","Reserved for loops","Imports a module"],ans:1,hint:"First parameter in instance methods."},
+  // Soft Skills
+  {cat:"Soft Skills",diff:"Easy",text:"What is active listening?",opts:["Listening while multitasking","Fully concentrating and understanding the speaker","Listening to music","Taking notes only"],ans:1,hint:"Being fully present."},
+  {cat:"Soft Skills",diff:"Easy",text:"What does empathy mean?",opts:["Feeling superior","Understanding and sharing others' feelings","Ignoring emotions","Being assertive"],ans:1,hint:"Walking in someone else's shoes."},
+  {cat:"Soft Skills",diff:"Medium",text:"Best approach when receiving critical feedback?",opts:["Argue against it","Ignore it","Listen, reflect, use constructively","Feel offended"],ans:2,hint:"Feedback is a growth tool."},
+  {cat:"Soft Skills",diff:"Medium",text:"Most important skill for a team leader?",opts:["Technical coding","Decision making and clear communication","Working alone","Avoiding conflicts"],ans:1,hint:"Leadership is about guiding people."},
+  {cat:"Soft Skills",diff:"Hard",text:"What is emotional intelligence (EQ)?",opts:["IQ of a computer","Ability to recognize and manage emotions in self and others","Memorizing facts","Technical skill"],ans:1,hint:"EQ — emotional quotient."},
+  {cat:"Soft Skills",diff:"Hard",text:"Most constructive conflict resolution strategy?",opts:["Avoidance","Accommodation","Collaboration","Competition"],ans:2,hint:"Win-win approach."},
+  // Science
+  {cat:"Science",diff:"Easy",text:"Chemical symbol for Gold?",opts:["Go","Gd","Au","Ag"],ans:2,hint:"Latin: Aurum."},
+  {cat:"Science",diff:"Easy",text:"What planet is known as the Red Planet?",opts:["Venus","Mars","Jupiter","Saturn"],ans:1,hint:"4th planet from the Sun."},
+  {cat:"Science",diff:"Medium",text:"Powerhouse of the cell?",opts:["Nucleus","Ribosome","Mitochondria","Golgi Body"],ans:2,hint:"Produces ATP."},
+  {cat:"Science",diff:"Hard",text:"Which law states F = ma?",opts:["Newton's 1st Law","Newton's 2nd Law","Newton's 3rd Law","Hooke's Law"],ans:1,hint:"Force = mass × acceleration."},
+  // Math
+  {cat:"Math",diff:"Easy",text:"Value of π to 2 decimal places?",opts:["3.12","3.14","3.16","3.18"],ans:1,hint:"Slightly more than 3.1."},
+  {cat:"Math",diff:"Medium",text:"Square root of 144?",opts:["11","12","13","14"],ans:1,hint:"12 × 12 = ?"},
+  {cat:"Math",diff:"Hard",text:"Derivative of x² with respect to x?",opts:["x","2x","x²","2"],ans:1,hint:"Power rule: bring down exponent."},
+];
+
+const KEYS = ['A','B','C','D'];
+const TIME_PER_Q = 20;
+const MAX_VIOL = 3;
+const HINTS_BY_DIFF = { Easy:3, Medium:2, Hard:1 };
+
+// ════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════
+let currentUser  = '';
+let selectedCat  = 'All';
+let selectedDiff = 'Easy';
+let questions    = [];
+let qIdx=0, score=0, answered=false;
+let timerInt=null, timeLeft=TIME_PER_Q;
+let violations=0, autoSubmitted=false, quizActive=false;
+let hintsLeft=3, hintUsed=false;
+let isDark = true;
+let sidebarOpen = window.innerWidth > 900;
+
+// ════════════════════════════════════════
+//  SIDEBAR
+// ════════════════════════════════════════
+function toggleSidebar(){
+  sidebarOpen = !sidebarOpen;
+  const sb = document.getElementById('sidebar');
+  const mc = document.getElementById('main-content');
+  const ov = document.getElementById('sidebar-overlay');
+  if(sidebarOpen){
+    sb.classList.remove('collapsed');
+    if(window.innerWidth > 900) mc.style.marginLeft = 'var(--sidebar-w)';
+    ov.classList.add('show');
+  } else {
+    sb.classList.add('collapsed');
+    mc.style.marginLeft = '0';
+    ov.classList.remove('show');
+  }
+}
+function initSidebar(){
+  const sb = document.getElementById('sidebar');
+  const mc = document.getElementById('main-content');
+  const ov = document.getElementById('sidebar-overlay');
+  if(window.innerWidth <= 900){
+    sb.classList.add('collapsed');
+    mc.style.marginLeft = '0';
+    sidebarOpen = false;
+    ov.classList.remove('show');
+  } else {
+    sb.classList.remove('collapsed');
+    mc.style.marginLeft = 'var(--sidebar-w)';
+    sidebarOpen = true;
+  }
+}
+window.addEventListener('resize', initSidebar);
+initSidebar();
+
+function updateSidebarUser(){
+  const block   = document.getElementById('sb-user-block');
+  const logoutEl = document.getElementById('nav-logout');
+  if(currentUser){
+    block.style.display = 'block';
+    document.getElementById('sb-av').textContent    = currentUser[0].toUpperCase();
+    document.getElementById('sb-uname').textContent = currentUser;
+    logoutEl.style.display = 'flex';
+  } else {
+    block.style.display    = 'none';
+    logoutEl.style.display = 'none';
+  }
+}
+function setActiveNav(id){
+  document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+  const el = document.getElementById(id);
+  if(el) el.classList.add('active');
+}
+function goHome(){ if(currentUser) showScreen('setup-screen'); else showScreen('login-screen'); setActiveNav('nav-home'); }
+function goSetup(){ if(!currentUser){ showScreen('login-screen'); return; } showScreen('setup-screen'); setActiveNav('nav-quiz'); }
+function quickStart(cat){
+  if(!currentUser){ showScreen('login-screen'); return; }
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('selected', b.dataset.cat === cat));
+  selectedCat = cat;
+  showScreen('setup-screen');
+  setActiveNav('nav-quiz');
+  if(window.innerWidth <= 900) toggleSidebar();
+}
+
+// ════════════════════════════════════════
+//  THEME
+// ════════════════════════════════════════
+function toggleTheme(){
+  isDark = !isDark;
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  document.getElementById('theme-btn').textContent = isDark ? '🌙 Dark' : '☀️ Light';
+}
+
+// ════════════════════════════════════════
+//  SCREENS
+// ════════════════════════════════════════
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(id);
+  el.classList.add('active');
+  el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
+}
+
+// ════════════════════════════════════════
+//  DB PILL — checks if server is reachable
+// ════════════════════════════════════════
+async function checkServerStatus(){
+  const pill    = document.getElementById('db-pill');
+  const pillTxt = document.getElementById('db-pill-text');
+  try {
+    // ping leaderboard endpoint just to check server is up
+    const res = await fetch('/api/leaderboard', { signal: AbortSignal.timeout(4000) });
+    const data = await res.json();
+    if(data.success !== undefined){
+      pill.classList.remove('offline');
+      pillTxt.textContent = 'Oracle 11g · Connected · server.js running';
+    }
+  } catch(e) {
+    pill.classList.add('offline');
+    pillTxt.textContent = 'Server offline · Run: node server.js';
+  }
+}
+checkServerStatus();
+
+// ════════════════════════════════════════
+//  LOGIN  →  calls POST /api/login
+// ════════════════════════════════════════
+async function handleLogin(){
+  const u   = document.getElementById('inp-user').value.trim();
+  const p   = document.getElementById('inp-pass').value.trim();
+  const err = document.getElementById('login-err');
+  const btn = document.getElementById('login-btn');
+
+  if(!u || !p){ setErr('Please enter both username and password.'); return; }
+  if(p.length < 4){ setErr('Password must be at least 4 characters.'); return; }
+  if(u.length < 3){ setErr('Username must be at least 3 characters.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Connecting to Oracle DB…';
+  setMsg('Authenticating via server.js → Oracle 11g…', false);
+
+  try {
+    // ── Calls server.js → POST /api/login ──
+    const res  = await fetch('/api/login', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+
+    if(data.success){
+      setMsg('✅ ' + data.message, true);
+      currentUser = u;
+      updateSidebarUser();
+      setActiveNav('nav-quiz');
+      setTimeout(() => showScreen('setup-screen'), 600);
+    } else {
+      setErr('❌ ' + data.error);
+    }
+  } catch(e) {
+    setErr('❌ Cannot reach server. Make sure you ran: node server.js');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Login →';
+
+  function setErr(msg){ err.textContent = msg; err.className = 'err'; }
+  function setMsg(msg, ok){ err.textContent = msg; err.className = ok ? 'ok' : ''; }
+}
+
+// ════════════════════════════════════════
+//  SETUP
+// ════════════════════════════════════════
+function selectCat(el){
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedCat = el.dataset.cat;
+}
+function selectDiff(el){
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedDiff = el.dataset.diff;
+  document.getElementById('hints-preview').textContent = HINTS_BY_DIFF[selectedDiff] + ' hints';
+}
+
+// ── calls GET /api/check-attempt → checks Oracle DB
+async function goToRules(){
+  try {
+    const res  = await fetch(`/api/check-attempt?username=${encodeURIComponent(currentUser)}&difficulty=${encodeURIComponent(selectedDiff)}`);
+    const data = await res.json();
+    if(data.attempted){ showScreen('blocked-screen'); return; }
+  } catch(e) {
+    // if server unreachable, fall through (allow quiz — offline mode)
+  }
+  showScreen('rules-screen');
+}
+
+// ════════════════════════════════════════
+//  START QUIZ
+// ════════════════════════════════════════
+function shuffle(a){ return [...a].sort(() => Math.random() - 0.5); }
+
+function startQuiz(){
+  let pool = selectedCat === 'All'
+    ? Q_BANK.filter(q => q.diff === selectedDiff)
+    : Q_BANK.filter(q => q.cat === selectedCat && q.diff === selectedDiff);
+  if(pool.length < 3) pool = Q_BANK.filter(q => q.diff === selectedDiff);
+
+  questions = shuffle(pool).slice(0, Math.min(10, pool.length));
+  qIdx=0; score=0; answered=false; violations=0; autoSubmitted=false; quizActive=true;
+  hintsLeft = HINTS_BY_DIFF[selectedDiff]; hintUsed = false;
+
+  document.getElementById('user-disp').textContent  = currentUser;
+  document.getElementById('user-av').textContent    = currentUser[0].toUpperCase();
+  document.getElementById('live-total').textContent = questions.length;
+  document.getElementById('hints-left-num').textContent = hintsLeft;
+  document.getElementById('hint-btn').disabled = false;
+
+  showScreen('quiz-screen');
+  loadQ();
+  attachWatcher();
+}
+
+// ════════════════════════════════════════
+//  LOAD QUESTION
+// ════════════════════════════════════════
+function loadQ(){
+  answered = false; hintUsed = false;
+  const q = questions[qIdx];
+
+  document.getElementById('q-frac').textContent  = `${qIdx+1} / ${questions.length}`;
+  document.getElementById('prog-bar').style.width = `${(qIdx / questions.length * 100) + 2}%`;
+  document.getElementById('q-cat').textContent   = '🔹 ' + q.cat;
+
+  const db = document.getElementById('q-diff-badge');
+  db.textContent = q.diff;
+  db.className   = 'q-diff-badge badge-' + q.diff.toLowerCase();
+
+  document.getElementById('q-text').textContent      = q.text;
+  document.getElementById('feedback').textContent    = '';
+  document.getElementById('next-btn').style.display  = 'none';
+  document.getElementById('hint-area').classList.remove('show');
+  document.getElementById('hint-btn').disabled       = (hintsLeft <= 0);
+
+  const list = document.getElementById('opts');
+  list.innerHTML = '';
+  q.opts.forEach((o, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'opt';
+    btn.innerHTML = `<span class="opt-key">${KEYS[i]}</span>${o}`;
+    btn.addEventListener('click', () => pick(i));
+    list.appendChild(btn);
+  });
+
+  startTimer();
+}
+
+// ════════════════════════════════════════
+//  TIMER
+// ════════════════════════════════════════
+function startTimer(){
+  clearInterval(timerInt); timeLeft = TIME_PER_Q; updateTimer();
+  timerInt = setInterval(() => {
+    timeLeft--;
+    updateTimer();
+    if(timeLeft <= 0){ clearInterval(timerInt); if(!answered) timeUp(); }
+  }, 1000);
+}
+function updateTimer(){
+  const fill = document.getElementById('t-fill');
+  fill.style.strokeDashoffset = (82 - (timeLeft / TIME_PER_Q) * 82).toString();
+  document.getElementById('t-num').textContent = timeLeft;
+  fill.className = 't-fill';
+  if(timeLeft <= 7 && timeLeft > 3) fill.classList.add('tw');
+  else if(timeLeft <= 3)            fill.classList.add('td');
+}
+function timeUp(){
+  answered = true;
+  document.querySelectorAll('.opt').forEach(b => b.disabled = true);
+  const fb = document.getElementById('feedback');
+  fb.textContent = "⏰ Time's up! Moving to next question…";
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+// ════════════════════════════════════════
+//  HINT
+// ════════════════════════════════════════
+function useHint(){
+  if(hintsLeft <= 0 || hintUsed || answered) return;
+  hintUsed = true; hintsLeft--;
+  document.getElementById('hint-text').textContent = questions[qIdx].hint || 'No hint available.';
+  document.getElementById('hint-area').classList.add('show');
+  document.getElementById('hints-left-num').textContent = hintsLeft;
+  document.getElementById('hint-btn').disabled = (hintsLeft <= 0);
+}
+
+// ════════════════════════════════════════
+//  PICK ANSWER — no correct answer reveal
+// ════════════════════════════════════════
+function pick(i){
+  if(answered) return;
+  answered = true; clearInterval(timerInt);
+  const ok = (i === questions[qIdx].ans);
+  if(ok) score++;
+
+  // Only highlight selected option — no green/red
+  document.querySelectorAll('.opt').forEach((b, idx) => {
+    b.disabled = true;
+    if(idx === i) b.classList.add('selected-ans');
+  });
+
+  document.getElementById('feedback').textContent = '✔ Answer recorded. Click Next to continue.';
+  document.getElementById('live-sc').textContent  = score;
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function nextQ(){
+  qIdx++;
+  if(qIdx >= questions.length) finishQuiz();
+  else loadQ();
+}
+
+// ════════════════════════════════════════
+//  FINISH QUIZ → calls POST /api/score
+// ════════════════════════════════════════
+async function finishQuiz(){
+  clearInterval(timerInt); quizActive = false;
+
+  const pct       = Math.round((score / questions.length) * 100);
+  const wrong     = questions.length - score;
+  const hintsUsed = HINTS_BY_DIFF[selectedDiff] - hintsLeft;
+
+  // ── Save score to Oracle DB via server.js ──
+  try {
+    await fetch('/api/score', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username:   currentUser,
+        subject:    selectedCat,
+        difficulty: selectedDiff,
+        score,
+        total:      questions.length,
+        pct,
+        violations,
+        hints_used: hintsUsed
+      })
+    });
+  } catch(e) {
+    console.warn('Score could not be saved to Oracle DB:', e.message);
+  }
+
+  // ── Result UI ──
+  document.getElementById('res-correct').textContent = score;
+  document.getElementById('res-wrong').textContent   = wrong;
+  document.getElementById('res-pct').textContent     = pct + '%';
+
+  let trophy, title;
+  if(pct === 100){ trophy='🏆'; title='PERFECT <span class="c">SCORE!</span>'; }
+  else if(pct >= 80){ trophy='🎉'; title='EXCELLENT <span class="c">WORK!</span>'; }
+  else if(pct >= 60){ trophy='👍'; title='GOOD <span class="c">JOB!</span>'; }
+  else if(pct >= 40){ trophy='😅'; title='KEEP <span class="c">GOING!</span>'; }
+  else               { trophy='💪'; title="DON'T <span class='c'>GIVE UP!</span>"; }
+
+  document.getElementById('res-trophy').textContent  = trophy;
+  document.getElementById('res-title').innerHTML     = title;
+  document.getElementById('res-msg').textContent     = autoSubmitted
+    ? 'Quiz auto-submitted due to anti-malpractice violations.'
+    : `Difficulty: ${selectedDiff} | Subject: ${selectedCat} | Hints used: ${hintsUsed}`;
+
+  // ── Security log ──
+  const logEl = document.getElementById('log-items');
+  logEl.innerHTML = '';
+  [
+    { d: violations===0?'ld-ok':'ld-warn', l:'Tab Switches', v:`${violations} detected` },
+    { d: autoSubmitted?'ld-bad':'ld-ok',   l:'Submission',   v: autoSubmitted?'Auto-submitted':'Normal completion' },
+    { d:'ld-ok', l:'Difficulty',   v: selectedDiff },
+    { d:'ld-ok', l:'Hints Used',   v:`${hintsUsed} of ${HINTS_BY_DIFF[selectedDiff]}` },
+    { d:'ld-ok', l:'DB Save',      v:'Score sent to Oracle fq_scores table' },
+  ].forEach(l => {
+    const div = document.createElement('div');
+    div.className = 'log-item';
+    div.innerHTML = `<div class="log-dot ${l.d}"></div><span>${l.l}:</span><strong>${l.v}</strong>`;
+    logEl.appendChild(div);
+  });
+
+  // ── Simulated SQL that server.js ran ──
+  const ts = new Date().toISOString().replace('T',' ').substring(0,19);
+  document.getElementById('sql-log').textContent =
+`-- Executed by server.js on Oracle 11g · ${ts}
+
+INSERT INTO fq_scores
+  (username, subject, difficulty, score, total, pct, violations, hints_used)
+VALUES
+  ('${currentUser}', '${selectedCat}', '${selectedDiff}',
+   ${score}, ${questions.length}, ${pct}, ${violations}, ${hintsUsed});
+
+UPDATE fq_users
+SET last_attempt = SYSDATE, attempts = NVL(attempts,0) + 1
+WHERE username = '${currentUser}';
+
+COMMIT;`;
+
+  setActiveNav('');
+  showScreen('result-screen');
+}
+function forceFinish(){ closeModal('autosubmit-modal'); finishQuiz(); }
+
+// ════════════════════════════════════════
+//  LEADERBOARD → calls GET /api/leaderboard
+// ════════════════════════════════════════
+async function loadLeaderboard(){
+  setActiveNav('nav-lb');
+  showScreen('leaderboard-screen');
+  const body = document.getElementById('lb-body');
+  body.innerHTML = '<div class="lb-empty">⏳ Loading from Oracle DB…</div>';
+
+  try {
+    // ── Calls server.js → GET /api/leaderboard ──
+    const res  = await fetch('/api/leaderboard');
+    const data = await res.json();
+
+    if(data.success && data.data && data.data.length > 0){
+      let html = '<div class="lb-table">';
+      data.data.forEach((e, i) => {
+        const rankCls = i===0?'r1':i===1?'r2':i===2?'r3':'';
+        const medal   = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+        html += `<div class="lb-row">
+          <div class="lb-rank ${rankCls}">${medal || i+1}</div>
+          <div style="flex:1;">
+            <div class="lb-name">${e.USERNAME}</div>
+            <div class="lb-meta">${e.DIFFICULTY} · ${e.SUBJECT} · ${e.DATE_STR}${e.VIOLATIONS>0?' · ⚠️'+e.VIOLATIONS+' warn':''}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="lb-score">${e.SCORE}/${e.TOTAL}</div>
+            <div class="lb-pct">${e.PCT}%</div>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+      body.innerHTML = html;
+    } else {
+      body.innerHTML = '<div class="lb-empty">No scores yet in Oracle DB. Be the first to play! 🚀</div>';
+    }
+  } catch(e) {
+    body.innerHTML = '<div class="lb-empty">❌ Could not reach server.js — run: node server.js</div>';
+  }
+}
+function clearLeaderboard(){
+  if(!confirm('This only clears display. Real data stays in Oracle DB.\nProceed?')) return;
+  document.getElementById('lb-body').innerHTML = '<div class="lb-empty">Cleared from view. Data is still in Oracle DB.</div>';
+}
+
+// ════════════════════════════════════════
+//  TAB DETECTION
+// ════════════════════════════════════════
+let watcherOn = false;
+function attachWatcher(){
+  if(watcherOn) return; watcherOn = true;
+  document.addEventListener('visibilitychange', onVis);
+  window.addEventListener('blur', onBlur);
+}
+function onVis(){ if(document.hidden && quizActive) recordViol(); }
+function onBlur(){ if(quizActive) recordViol(); }
+let lastVt = 0;
+function recordViol(){
+  const now = Date.now(); if(now - lastVt < 1500) return; lastVt = now;
+  violations++; updateSecBadge();
+  if(violations >= MAX_VIOL){
+    clearInterval(timerInt); quizActive = false; autoSubmitted = true;
+    document.getElementById('autosubmit-modal').classList.add('show');
+  } else {
+    document.getElementById('modal-msg').innerHTML =
+      `Tab switching detected. This is violation <strong>${violations}</strong> of ${MAX_VIOL}. One more will auto-submit.`;
+    document.getElementById('viol-modal').classList.add('show');
+    showWarnBanner();
+  }
+}
+function showWarnBanner(){
+  const b = document.getElementById('warn-banner');
+  document.getElementById('warn-count').textContent = `${violations}/${MAX_VIOL}`;
+  b.classList.add('show'); updateSecBadge();
+  setTimeout(() => b.classList.remove('show'), 5000);
+}
+function updateSecBadge(){
+  const b = document.getElementById('sec-badge');
+  if(violations === 0)          { b.textContent='🟢 Secure';                          b.className='sec-badge'; }
+  else if(violations < MAX_VIOL){ b.textContent=`🟡 ${violations} Warning${violations>1?'s':''}`;b.className='sec-badge warn-mode'; }
+  else                           { b.textContent='🔴 Violated';                        b.className='sec-badge warn-mode'; }
+}
+
+// ════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+function handleLogout(){
+  quizActive = false; clearInterval(timerInt);
+  document.removeEventListener('visibilitychange', onVis);
+  window.removeEventListener('blur', onBlur);
+  watcherOn = false;
+  currentUser = '';
+  updateSidebarUser();
+  document.getElementById('inp-user').value  = '';
+  document.getElementById('inp-pass').value  = '';
+  document.getElementById('login-err').textContent = '';
+  setActiveNav('nav-home');
+  checkServerStatus();
+  showScreen('login-screen');
+}
+
+// Enter key support
+document.getElementById('inp-pass').addEventListener('keydown', e => { if(e.key==='Enter') handleLogin(); });
+document.getElementById('inp-user').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('inp-pass').focus(); });
+
+</script>
+</body>
+</html>
